@@ -43,10 +43,10 @@ class DatabaseService {
   // ----------
   // starred stations
   // ----------
-  Future<int> saveStarredStation(Station station) async {
+  Future<bool> saveStarredStation(Station station) async {
     var dbClient = await db;
-    int res = await dbClient.insert("StarredStations", station.toMap());
-    return res;
+    int count = await dbClient.insert("StarredStations", station.toMap());
+    return count > 0;
   }
 
   Future<bool> removeStarredStation(Station station) async {

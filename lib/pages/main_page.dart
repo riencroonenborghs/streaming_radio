@@ -20,7 +20,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   AudioPlayer _audioPlayer = new AudioPlayer();
   List<Country> _countries = new List<Country>();
-  DatabaseService databaseService = new DatabaseService();
+  DatabaseService _databaseService = new DatabaseService();
   Country _selectedCountry;
   Station _selectedStation;
   Station _selectedStarredStation;
@@ -51,26 +51,33 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void initState() {
-
-    databaseService.getStarredStations().then((data) {
-      _starredStationsFromDatabase = data;
-      _loadCountries();
-    });    
+    _loadStarredStationsCountriesAndStations();   
   }
 
-  _loadCountries() {
+  _loadStarredStationsCountriesAndStations() {
+    _countries = new List<Country>();
+    _starredStations = new List<Station>();
+
+    _databaseService.getStarredStations().then((data) {
+      _starredStationsFromDatabase = data;
+      _loadCountriesAndStations();
+    }); 
+  }
+
+  _loadCountriesAndStations() {
     _parseJsonFromAssets("assets/data/countries.json").then((Map<String, dynamic> countriesData) {
+      // create all the countries
       countriesData.forEach((code, name) {
         _countries.add(new Country(code, name));
       });
       _countries.sort((a, b) => a.name.compareTo(b.name));
-
       _loadStations();
     });
   }
 
   _loadStations() {
     _parseJsonFromAssets("assets/data/stations.json").then((Map<String, dynamic> stationsData) {
+      // create all the stations per country
       _countries.forEach((country) {
         stationsData[country.code].forEach((stationData) {
           Station station = new Station(
@@ -86,11 +93,12 @@ class _MainPageState extends State<MainPage> {
             (radioUrl) => radioUrl == station.radioUrl,
             orElse: () => null
           ) != null;
-          // if it is, add it to the list
+          // if it is, add it to the list of starred stations
           if(isStarred) { _starredStations.add(station); }
         });
-        country.stations.sort((a, b) => a.name.compareTo(b.name));
+        country.stations.sort((a, b) => a.name.compareTo(b.name));        
       });
+      _starredStations.sort((a, b) => a.fullName().compareTo(b.fullName()));
 
       // just to repaint the screen after loading the assets
       setState(() { _stop(); });
@@ -127,7 +135,7 @@ class _MainPageState extends State<MainPage> {
       items: _starredStations.map<DropdownMenuItem<Station>>((Station station) {
         return DropdownMenuItem<Station>(
           value: station,
-          child: Text("${station.country.name} - ${station.name}")
+          child: Text(station.fullName())
         );
       }).toList(),
     );
@@ -197,6 +205,27 @@ class _MainPageState extends State<MainPage> {
       _selectedStation = station;
     });
   }
+
+  _rememberStation() async {
+    bool result = await _databaseService.saveStarredStation(_selectedStation);
+    if(result) {
+      setState(() {
+        _selectedStarredStation = _selectedStation;
+        _starredStations.add(_selectedStation);
+        _starredStations.sort((a, b) => a.fullName().compareTo(b.fullName()));
+      });
+    }
+  }
+  _forgetStation() async {
+    bool result = await _databaseService.removeStarredStation(_selectedStation);
+    if(result) {
+      setState(() { 
+        _selectedStarredStation = null;
+        _starredStations.remove(_selectedStation);
+        _starredStations.sort((a, b) => a.fullName().compareTo(b.fullName()));
+      });
+    }
+  }
   
   Widget _station() {
     if(_selectedStation == null) { return Container(); }
@@ -228,17 +257,9 @@ class _MainPageState extends State<MainPage> {
           icon: stationIsStarred ? Icon(Icons.star) : Icon(Icons.star_border),
           onPressed: () {
             if(stationIsStarred) {
-              databaseService.removeStarredStation(_selectedStation).then((result) {
-                if(result == 1) {
-                  setState(() => _playerState = _playerState);
-                }
-              });
+              _forgetStation();              
             } else {
-              databaseService.saveStarredStation(_selectedStation).then((result) {
-                if(result == 1) {
-                  setState(() => _playerState = _playerState);
-                }
-              });
+              _rememberStation();
             }
           },
         ),
