@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "dart:convert";
+import "dart:async";
 import 'package:audioplayer/audioplayer.dart';
 
 import "package:StreamingRadio/models/models.dart";
@@ -37,7 +38,8 @@ class _MyHomePageState extends State<MyHomePage> {
   Station _selectedStation;
   AudioPlayer audioPlayer;
   PlayerState playerState;
-  num secondsPlaying;
+  num _secondsPlaying;
+  Timer _timer;
 
   Future<Map<String, dynamic>> parseJsonFromAssets(String assetsPath) async {
     return DefaultAssetBundle.of(context).loadString(assetsPath).then((jsonStr) => jsonDecode(jsonStr));
@@ -52,7 +54,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     audioPlayer = new AudioPlayer();
-    secondsPlaying = 0;
+    _secondsPlaying = 0;
 
     _countries = new List<Country>();
     _countries.add(new Country("be", "België"));
@@ -189,16 +191,30 @@ class _MyHomePageState extends State<MyHomePage> {
                 color: Colors.blue
               )
             ]
-          )        
+          ),
+          isPlaying ? _hhmm() : Container()
         ]
-      )
+      )      
     );
+  }
+  Widget _hhmm() {
+    num time = _secondsPlaying;
+    num hh = (time / 3600).round();
+    time -= hh * 3600;
+    String hhString = hh > 10 ? "${hh}" : "0${hh}";
+    num mm = (time / 60).round();
+    time -= mm * 60;
+    String mmString = mm > 10 ? "${mm}" : "0${mm}";
+    num ss = time % 60;
+    String ssString = ss > 10 ? "${ss}" : "0${ss}";
+    return Text("${hhString}:${mmString}:${ssString}");
   }
   get isPlaying => playerState == PlayerState.playing;
   get isPaused => playerState == PlayerState.paused;
   Future play() async {
     await audioPlayer.play(_selectedStation.radioUrl);
     setState(() => playerState = PlayerState.playing);
+    startTimer();
   }
   Future pause() async {
     await audioPlayer.pause();
@@ -206,8 +222,27 @@ class _MyHomePageState extends State<MyHomePage> {
   }
   Future stop() async {
     await audioPlayer.stop();
-    secondsPlaying = 0;
+    _secondsPlaying = 0;
     setState(() => playerState = PlayerState.stopped);
+    stopTimer(true);
+  }
+
+  startTimer() {
+    stopTimer(false);
+    _timer = Timer.periodic(Duration(seconds: 1), (Timer timer) {
+      setState(() {
+        if(isPlaying) { _secondsPlaying += 1; }
+      });      
+    });
+  }
+
+  stopTimer(bool reset) {
+    if(_timer != null && _timer.isActive) {
+      _timer.cancel();
+    }
+    if(reset) {
+      _secondsPlaying = 0;
+    }
   }
 
   @override
