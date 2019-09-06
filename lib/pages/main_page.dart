@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
-import 'package:audioplayer/audioplayer.dart';
+import "package:audioplayer/audioplayer.dart";
+import "package:url_launcher/url_launcher.dart";
 import "dart:convert";
 import "dart:async";
 
@@ -33,6 +34,14 @@ class _MainPageState extends State<MainPage> {
       alignment: Alignment.centerLeft,
       child: child
     );
+  }
+
+  _launchURL(String url) async {
+    if(await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw "Could not launch ${url}";
+    }
   }
 
   @override
@@ -109,6 +118,7 @@ class _MainPageState extends State<MainPage> {
     if(_selectedCountry == null) { return Container(); }
 
     return DropdownButton<Station>(
+      isExpanded: true,
       value: _selectedStation,
       onChanged: (Station station) {
         _selectStation(station);
@@ -139,29 +149,25 @@ class _MainPageState extends State<MainPage> {
         children: [
           Padding(
             padding: EdgeInsets.only(right: 16.0),
-            child: Avatar(name: _selectedStation.name)
+            child: GestureDetector(
+              onTap: () {
+                _launchURL(_selectedStation.siteUrl);
+              },
+              child: Avatar(name: _selectedStation.name)
+            )
           ),
-          Text(
-            _selectedStation.name,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 24.0
+          Expanded(
+            child: Text(
+              _selectedStation.name,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 24.0
+              )
             )
           )
         ]
       )
     );
-
-    // Widget title = Padding(
-    //   padding: EdgeInsets.only(bottom: 16.0),
-    //   child: Text(
-    //     _selectedStation.name,
-    //     style: TextStyle(
-    //       fontWeight: FontWeight.bold,
-    //       fontSize: 24.0
-    //     )
-    //   )
-    // );
     
     return Card(
       elevation: 5,
