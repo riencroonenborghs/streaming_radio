@@ -37,6 +37,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Station _selectedStation;
   AudioPlayer audioPlayer;
   PlayerState playerState;
+  num secondsPlaying;
 
   Future<Map<String, dynamic>> parseJsonFromAssets(String assetsPath) async {
     return DefaultAssetBundle.of(context).loadString(assetsPath).then((jsonStr) => jsonDecode(jsonStr));
@@ -51,6 +52,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     audioPlayer = new AudioPlayer();
+    secondsPlaying = 0;
 
     _countries = new List<Country>();
     _countries.add(new Country("be", "België"));
@@ -102,6 +104,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
   _selectCountry(Country country) {
     setState(() {
+      stop();
       _selectedCountry = country;
       _selectedStation = null;
     });
@@ -126,6 +129,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
   _selectStation(Station station) {
     setState(() {
+      stop();
       _selectedStation = station;
     });
   }
@@ -150,7 +154,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           children: [
             title,
-            leftAlign(Text(_selectedStation.description)2),
+            leftAlign(Text(_selectedStation.description)),
             _player()
           ]
         )
@@ -202,6 +206,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
   Future stop() async {
     await audioPlayer.stop();
+    secondsPlaying = 0;
     setState(() => playerState = PlayerState.stopped);
   }
 
