@@ -98,7 +98,7 @@ class _MainPageState extends State<MainPage> {
         });
         country.stations.sort((a, b) => a.name.compareTo(b.name));        
       });
-      _starredStations.sort((a, b) => a.fullName().compareTo(b.fullName()));
+      _sortStarredStations();
 
       // just to repaint the screen after loading the assets
       setState(() { _stop(); });
@@ -114,6 +114,10 @@ class _MainPageState extends State<MainPage> {
   // ----------
   // starred stations
   // ----------
+
+  _sortStarredStations() {
+    _starredStations.sort((a, b) => a.fullName().compareTo(b.fullName()));
+  }
 
   _isStarredStation() {
     return _starredStations.firstWhere(
@@ -212,7 +216,7 @@ class _MainPageState extends State<MainPage> {
       setState(() {
         _selectedStarredStation = _selectedStation;
         _starredStations.add(_selectedStation);
-        _starredStations.sort((a, b) => a.fullName().compareTo(b.fullName()));
+        _sortStarredStations();
       });
     }
   }
@@ -222,7 +226,7 @@ class _MainPageState extends State<MainPage> {
       setState(() { 
         _selectedStarredStation = null;
         _starredStations.remove(_selectedStation);
-        _starredStations.sort((a, b) => a.fullName().compareTo(b.fullName()));
+       _sortStarredStations();
       });
     }
   }
