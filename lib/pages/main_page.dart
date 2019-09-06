@@ -6,6 +6,7 @@ import "dart:async";
 
 import "package:StreamingRadio/models/models.dart";
 import "package:StreamingRadio/widgets/widgets.dart";
+import "package:StreamingRadio/services/services.dart";
 
 enum PlayerState { stopped, playing, paused }
 
@@ -19,8 +20,12 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   AudioPlayer _audioPlayer = new AudioPlayer();
   List<Country> _countries = new List<Country>();
+  DatabaseService databaseService = new DatabaseService();
   Country _selectedCountry;
   Station _selectedStation;
+  Station _selectedStarredStation;
+  List<Station> _starredStations = new List<Station>();
+  List<String> _starredStationsFromDatabase;
   PlayerState _playerState;
   num _secondsPlaying = 0;
   Timer _timer;
@@ -46,31 +51,49 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void initState() {
+
+    databaseService.getStarredStations().then((data) {
+      _starredStationsFromDatabase = data;
+      _loadCountries();
+    });    
+  }
+
+  _loadCountries() {
     _parseJsonFromAssets("assets/data/countries.json").then((Map<String, dynamic> countriesData) {
       countriesData.forEach((code, name) {
         _countries.add(new Country(code, name));
       });
       _countries.sort((a, b) => a.name.compareTo(b.name));
 
-      _parseJsonFromAssets("assets/data/stations.json").then((Map<String, dynamic> stationsData) {
-        _countries.forEach((country) {
-          stationsData[country.code].forEach((stationData) {
-            country.addStation(
-              new Station(
-                stationData["name"],
-                stationData["image"],
-                stationData["site_url"],
-                stationData["radio_url"],
-                stationData["description"]
-              )
-            );
-          });
-          country.stations.sort((a, b) => a.name.compareTo(b.name));
-        });
+      _loadStations();
+    });
+  }
 
-        // just to repaint the screen after loading the assets
-        setState(() { _stop(); });
+  _loadStations() {
+    _parseJsonFromAssets("assets/data/stations.json").then((Map<String, dynamic> stationsData) {
+      _countries.forEach((country) {
+        stationsData[country.code].forEach((stationData) {
+          Station station = new Station(
+            stationData["name"],
+            stationData["image"],
+            stationData["site_url"],
+            stationData["radio_url"],
+            stationData["description"]
+          );
+          country.addStation(station);
+          // check if station is in our database list of starred stations
+          bool isStarred = _starredStationsFromDatabase.firstWhere(
+            (radioUrl) => radioUrl == station.radioUrl,
+            orElse: () => null
+          ) != null;
+          // if it is, add it to the list
+          if(isStarred) { _starredStations.add(station); }
+        });
+        country.stations.sort((a, b) => a.name.compareTo(b.name));
       });
+
+      // just to repaint the screen after loading the assets
+      setState(() { _stop(); });
     });
   }
 
@@ -80,8 +103,43 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
-  Widget _starredStationsList() {
+  // ----------
+  // starred stations
+  // ----------
 
+  _isStarredStation() {
+    return _starredStations.firstWhere(
+      (starredStation) => starredStation.radioUrl == _selectedStation.radioUrl,
+      orElse: () => null
+    ) != null;
+  }
+
+  Widget _starredStationsList() {
+    if(_starredStations.isEmpty) { return Container(); }
+
+    return DropdownButton<Station>(
+      isExpanded: true,
+      value: _selectedStarredStation,
+      onChanged: (Station station) {
+        _selectStarredStation(station);
+      },
+      hint: Text("Select remembered station"),
+      items: _starredStations.map<DropdownMenuItem<Station>>((Station station) {
+        return DropdownMenuItem<Station>(
+          value: station,
+          child: Text("${station.country.name} - ${station.name}")
+        );
+      }).toList(),
+    );
+  }
+
+  _selectStarredStation(Station station) {
+    setState(() {
+      _stop();
+      _selectedStarredStation = station;
+      _selectedCountry = station.country;
+      _selectedStation = station;
+    });
   }
 
   // ----------
@@ -143,26 +201,63 @@ class _MainPageState extends State<MainPage> {
   Widget _station() {
     if(_selectedStation == null) { return Container(); }
 
-    Widget title = Padding(
+    Widget title = Text(
+      _selectedStation.name,
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 24.0
+      )
+    );
+
+    Widget avatar = Padding(
+      padding: EdgeInsets.only(right: 16.0),
+      child: GestureDetector(
+        onTap: () {
+          _launchURL(_selectedStation.siteUrl);
+        },
+        child: Avatar(name: _selectedStation.name)
+      )
+    );
+
+    bool stationIsStarred = _isStarredStation();
+
+    Widget starring = Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        IconButton(
+          icon: stationIsStarred ? Icon(Icons.star) : Icon(Icons.star_border),
+          onPressed: () {
+            if(stationIsStarred) {
+              databaseService.removeStarredStation(_selectedStation).then((result) {
+                if(result == 1) {
+                  setState(() => _playerState = _playerState);
+                }
+              });
+            } else {
+              databaseService.saveStarredStation(_selectedStation).then((result) {
+                if(result == 1) {
+                  setState(() => _playerState = _playerState);
+                }
+              });
+            }
+          },
+        ),
+        Text("${stationIsStarred ? 'Forget' : 'Remember'} this station")
+      ]
+    );
+
+    Widget top = Padding(
       padding: EdgeInsets.only(bottom: 16.0),
-      child: Row(
+      child: Row(        
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: GestureDetector(
-              onTap: () {
-                _launchURL(_selectedStation.siteUrl);
-              },
-              child: Avatar(name: _selectedStation.name)
-            )
-          ),
+          avatar,
           Expanded(
-            child: Text(
-              _selectedStation.name,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 24.0
-              )
+            child: Column(
+              children: [
+                _leftAlign(title),
+                starring
+              ]
             )
           )
         ]
@@ -175,7 +270,7 @@ class _MainPageState extends State<MainPage> {
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
-            title,
+            top,
             _leftAlign(Text(_selectedStation.description)),
             _player()
           ]
@@ -287,7 +382,7 @@ class _MainPageState extends State<MainPage> {
         padding: EdgeInsets.all(8.0),
         child: Column(
           children: [
-            // _starredStationsList(),
+            _starredStationsList(),
             _leftAlign(_countriesList()),
             _leftAlign(_stationsList()),
             _station(),

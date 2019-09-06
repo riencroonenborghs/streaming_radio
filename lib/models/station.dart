@@ -32,4 +32,9 @@ class Station {
 
   set country(Country country) => this._country = country;
 
+  Map<String, dynamic> toMap() {
+    var map = new Map<String, dynamic>();
+    map["radioUrl"] = _radioUrl;
+    return map;
+  }
 }
