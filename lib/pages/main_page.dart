@@ -178,6 +178,7 @@ class _MainPageState extends State<MainPage> {
       _stop();
       _selectedCountry = country;
       _selectedStation = null;
+      _selectedStarredStation = null;
     });
   }
 
@@ -207,6 +208,7 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _stop();
       _selectedStation = station;
+      _selectedStarredStation = null;
     });
   }
 
@@ -296,7 +298,7 @@ class _MainPageState extends State<MainPage> {
         child: Column(
           children: [
             top,
-            _leftAlign(Text(_selectedStation.description)),
+            // _leftAlign(Text(_selectedStation.description)),
             _player()
           ]
         )
@@ -410,7 +412,7 @@ class _MainPageState extends State<MainPage> {
             _starredStationsList(),
             _leftAlign(_countriesList()),
             _leftAlign(_stationsList()),
-            _station(),
+            _station()
           ]
         )
       )
